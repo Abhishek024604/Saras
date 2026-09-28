@@ -1,0 +1,242 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships        Membership[]
+  projects           Project[]
+  sessions           Session[]
+  projectMemberships ProjectMembership[]
+  projectDocs        ProjectDoc[]
+  docSections        ProjectDocSection[]
+}
+
+model Tenant {
+  id   String @id @default(uuid())
+  name String
+  slug String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships Membership[]
+  projects    Project[]
+  invitations Invitation[]
+}
+
+model Membership {
+  id        String   @id @default(uuid())
+  userId    String
+  tenantId  String
+  role      Role
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  tenantId    String
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy     User                @relation(fields: [createdById], references: [id])
+  members       ProjectMembership[]
+  channels      Channel[]
+  projectAgents ProjectAgent[]
+  projectDocs   ProjectDoc[]
+  docSections   ProjectDocSection[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model ProjectMembership {
+  id        String   @id @default(uuid())
+  projectId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+}
+
+model Channel {
+  id        String   @id @default(uuid())
+  name      String
+  projectId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+model Message {
+  id         String     @id @default(uuid())
+  content    String
+  channelId  String
+  senderId   String
+  senderType SenderType    @default(USER)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@index([channelId, createdAt])
+  @@index([senderId, senderType])
+}
+
+enum SenderType {
+  USER
+  AGENT
+}
+
+model Session {
+  id               String   @id @default(uuid())
+  userId           String
+  refreshTokenHash String   @unique
+  expiresAt        DateTime
+  createdAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+model Invitation {
+  id         String           @id @default(uuid())
+  tenantId   String
+  email      String
+  tokenHash  String           @unique
+  expiresAt  DateTime
+  status     InvitationStatus @default(PENDING)
+  createdAt  DateTime         @default(now())
+  acceptedAt DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([email])
+}
+
+model AgentDefinition {
+  id String @id @default(uuid())
+
+  name        String
+  slug        String  @unique
+  role        String
+  description String?
+
+  runtimeKey   String
+  defaultModel String?
+  configuration Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projectAgents ProjectAgent[]
+}
+
+model ProjectAgent {
+  id String @id @default(uuid())
+
+  projectId         String
+  agentDefinitionId String
+
+  displayName   String?
+  modelOverride String?
+  configuration Json?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  agentDefinition AgentDefinition @relation(fields: [agentDefinitionId], references: [id])
+
+  @@unique([projectId, agentDefinitionId])
+  @@index([projectId])
+  @@index([agentDefinitionId])
+}
+
+model ProjectDocSection {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  projectId   String
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy   User         @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  docs        ProjectDoc[]
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+model ProjectDoc {
+  id          String   @id @default(uuid())
+  title       String
+  content     String?  @db.Text
+  fileName    String?
+  fileType    String?
+  fileSize    Int?
+  fileData    String?  @db.Text
+  sectionId   String?
+  projectId   String
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project   Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  section   ProjectDocSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  createdBy User               @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([sectionId])
+  @@index([createdById])
+  @@index([projectId, createdAt])
+}
+

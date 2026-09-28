@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@layer base {
+    :root {
+        font-family: Slack-Lato, Lato, "Helvetica Neue", Arial, sans-serif;
+        color: #1d1c1d;
+        background: #f8f8f8;
+        font-synthesis: none;
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
+    html,
+    body,
+    #root {
+        min-width: 320px;
+        min-height: 100vh;
+    }
+
+    body {
+        margin: 0;
+        background: #f8f8f8;
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+        font: inherit;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+}
+
+@layer utilities {
+    /* Completely hide scrollbar rulers while keeping full scrolling functionality */
+    .no-scrollbar,
+    .slack-scrollbar {
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+    }
+
+    .no-scrollbar::-webkit-scrollbar,
+    .slack-scrollbar::-webkit-scrollbar {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+    }
+}
